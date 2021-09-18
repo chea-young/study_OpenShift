@@ -40,4 +40,24 @@
     - OS 이점: 컨테이너는 Linux를 기반으로 함으로써, 오픈소스의 혁신성, 신속한 개발 환경이 가져오는 이점을 모두 사용할 수 있다. 
     - 배포 및 확장 이점
         - 애플리케이션의 주요 릴리스 간 롤링 업그레이드를 사용하는 경우, 다운타임 없이 지속적으로 애플리케이션을 개선하고 현재 릴리스와의 호환성을 유지할 수 있다.
-- 오픈소스 - OKD는 Kubernetes 이외에도 여러 오픈소스 프로젝트가 통합되어 있다.
+- 오픈소스 - OKD는 Kubernetes 이외에도 여러 오픈소스 프로젝트가 통합되어 있다..
+
+### FCOS(Fedora CoreOS)
+- OKD control plane 또는 master machine에 대해 유일하게 지원되는 OS이다.
+- 모든 클러스터 시스템의 기본 OS로써, Fedora를 OS로 사용하는 computing 시스템(worker 시스템)을 만들 수 있다.
+- OKD 4에서 FCOS를 배포하는 방법 2가지
+    - OKD 클러스터가 프로비저닝하는 인프라에 클러스터를 설치하면, 설치 중에 FCOS 이미지가 대상 플랫폼에 다운로드되고, FCOS 구성을 제어하는 적절한 ignition 구성 파일이 machine을 배포하는데 사용된다.
+    - 사용자가 관리하는 인프라에 클러스터를 설치하는 경우, 설치 설명서에 따라 FCOS 이미지 확보, ignition 구성 파일 생성, ignition 구성 파일을 통한 machine 프로비저닝을 진행해야 한다.
+- FCOS 구성 방법
+    - OpenStack과 같이 프로비저닝된 인프라로 시작하거나 인프라를 직접 프로비저닝한다.
+    - openshift-install를 실행할 떄, install-config.yaml 파일에 자격 증명, 클러스터 이름과 같은 몇 가지 정보를 제공한다.
+
+#### ignition
+- FCOS에서 초기 구성 중에 디스크를 조작하는 데 사용하는 유틸리티이다.
+- 처음 부팅 할 떄 iginition은 설치 미디어 또는 사용자가 지정한 위체에서 구성을 읽고, 구성을 machine에 적용한다.
+- 작동 원리
+    - machine 생성 시, ignition config 파일이 필요하게 된다. ignition config 파일은 OKD 설치 프로그램을 통해 만들 수 있으며, ignition의 구성 내용은 install-config.yaml 파일에서 제공하는 정보를 기반으로 만들어진다.
+
+### Operator
+- 다른 소프트웨어를 실행하는 작업의 복잡성을 완화하는 소프트웨어이다.
+- Kubernetes 환경을 지속적으로 확인하고 현재 상태를 사용하여 실시간으로 의사 결정을 내린다.
