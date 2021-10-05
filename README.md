@@ -237,7 +237,7 @@ sudo mv kubectl /bin
 ```
 sudo mkdir /var/www/html/okd46
 ```
-- config 파일 생성 `sudo nano install-config.yaml`
+- config 파일 생성 `sudo nano install-config.yaml` (ssh-keygen은 .pub의 내용을 붙여넣기)
 ```
 apiVersion: v1
 baseDomain: example.com 
@@ -262,10 +262,40 @@ platform:
   none: {} 
 fips: false 
 pullSecret: '{"auths":{"fake":{"auth":"bar"}}}' 
-sshKey: 'SHA256 cAudnfnCtnDrijsLd3vKTcvC6JVN8vE8kFgzNUCFRIA' 
+sshKey: 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCo23KB45w/ASpdkIiT3HENptr+hT/OXVYeiUl8wOD7ROzsbyxRlzKMt7TnibnAQE3Mprn/Wu3LMANZlyT8vQ5VceWuV5SJ2Ciryz9J7gzkSVulw9WdkAcNzyw7QNme6o4GaKoHmZJBlPmAVqcmoLHreWBOBzm9IrKiruvC3MG+iwkgr3l56ybL3L3NCxt7hTrMX9zVzD8k1+x+7rPYbcVKUUlfyJL+VaTsCNsp2BjwQd6RFAlVadTszAm33HfQXBZ9bOOpQWwlXNPtpmiVFO0CjA0g5cFU7AkDdRdm2ELWS+KyVK7nc6GApYORz2MUtTPXF6mFma/VD7Hte+IamhnjyAE4zOjxeuoyfCUQ57pyLDvpcyhaCmHLo31ezk76K1mCMBzLF/2V0aS2ZcOms3c+FHuEJCS1c14svG21IjiPl19tzIkuGP+IJF71f6Fzev238syY758L0WceLXtLrcWR4Aupr8qyKM6x/yBMfzp3yRmh/UkEirWdBcg0/gpUNxc= lchy@bastioncent83.lds.co.kr
+' 
 ```
 - kubernetes manifests 및 Ignition 파일 구성
 ```
 sudo cp ./install-config.yaml /var/www/html/okd46
 sudo openshift-install create manifests --dir=/var/www/html/okd46
 ```
+13. Control Plane Machine 생성
+- FCOS ISO 다운
+```
+sudo wget https://builds.coreos.fedoraproject.org/prod/streams/stable/builds/34.20210904.3.0/x86_64/fedora-coreos-34.20210904.3.0-live.x86_64.iso
+```
+- VM 생성 및 FCOS 설치
+```
+cd /var/lib/libvirt/images
+sudo qemu-img create -f qcow2 bootstrap.cent83.lds.co.kr 200G
+sudo qemu-img create -f qcow2 master1.cent83.lds.co.kr 200G
+sudo qemu-img create -f qcow2 master2.cent83.lds.co.kr 200G
+sudo qemu-img create -f qcow2 master3.cent83.lds.co.kr 200G
+sudo dnf install virt-manager -y
+virt-manager
+```
+<img src='./img/VF-1.png'>
+- 가장 왼쪽에 있는 버튼을 누른다.
+<img src='./img/VF-2.png'>
+- '로컬 설치 매체'를 클릭하고 '앞으로'를 누른다.
+<img src='./img/VF-3.png'>
+- 전단계에서 다운받았던 'Fedora CoreOS'클릭하고 'Generic default'를 입력한다. '앞으로'를 눌러준다.
+<img src='./img/VF-4.png'>
+- 다음과 같이 설정해준 후 '앞으로'를 클릭해준다.
+<img src='./img/VF-5.png'>
+- lds_okd46_bootstrap 입력 후 완룍를 클릭해준다.
+<img src='./img/VF-6.png'>
+- virtio로 선택해준다.
+<img src='./img/VF-7.png'>
+- virtIO로 선택해준후 '설치 시작'을 누른다.
