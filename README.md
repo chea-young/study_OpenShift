@@ -30,6 +30,14 @@
 - 몇 대의 machine과 애플리케이션으로 이루어진 소규모 데이터 센터가 수 백만 클라이언트를 지원할 수 있는 수 천대 규모의 데이터센터로 확장 가능하도록 설계도있다.
 - 단일 클라우드뿐만 아니라 온프레미스 몇 다중 클라우드 환경까지 컨테이너화된 애플리케이션을 확장, 배포 실행할 수 있다.
 
+### OKD 아키텍쳐
+- Kubelet: 클러스터 API에 제공되는 선언 또는 작업을 수행하기 위해 각 node에 실행되는 에어전트이다.
+- Kube-proxy: kube-proxy 인스턴스는 클러스터의 모든 node에 실행되며, 각 node에서 Kubernetes 네트워크 서비스를 구현한다.
+- 컨테이너 런타임: 선택한 컨테이너 런타임 엔진은 Kubernetes 클러스터의 각 node에 배포되어야 한다.
+- OKD의 Machine
+    - Workder 클러스터: worker node는 Kubernetes 사용자가 요청한 실제 워크로드가 실행되고 관리되는 곳이다.
+    - Master 클러스터: Kubernetes 클러스터를 제어하느데 필요한 서비스를 실행한다. 
+
 ### Kubernetes
 - 컨테이너화된 애프리케이션의 배포, 확장, 관리 등을 자동화하기 위한 오픈 소스 컨테이너 오케스트레이션 엔진이다.
 - 컨테이너 워크로드를 시행하려면 하나 이상의 worker node로 시작하면 된다.
@@ -40,7 +48,7 @@
     - OS 이점: 컨테이너는 Linux를 기반으로 함으로써, 오픈소스의 혁신성, 신속한 개발 환경이 가져오는 이점을 모두 사용할 수 있다. 
     - 배포 및 확장 이점
         - 애플리케이션의 주요 릴리스 간 롤링 업그레이드를 사용하는 경우, 다운타임 없이 지속적으로 애플리케이션을 개선하고 현재 릴리스와의 호환성을 유지할 수 있다.
-- 오픈소스 - OKD는 Kubernetes 이외에도 여러 오픈소스 프로젝트가 통합되어 있다..
+- 오픈소스 - OKD는 Kubernetes 이외에도 여러 오픈소스 프로젝트가 통합되어 있다.
 
 ### FCOS(Fedora CoreOS)
 - OKD control plane 또는 master machine에 대해 유일하게 지원되는 OS이다.
@@ -61,3 +69,203 @@
 ### Operator
 - 다른 소프트웨어를 실행하는 작업의 복잡성을 완화하는 소프트웨어이다.
 - Kubernetes 환경을 지속적으로 확인하고 현재 상태를 사용하여 실시간으로 의사 결정을 내린다.
+
+## OpenShift 구축하기
+- Bastion node 구성
+1. 패키지 설치
+```
+sudo dnf install qemu-kvm -y
+qemu-img create -f qcow2 bastion.cent83.lds.co.kr 200G
+```
+2. Hostname 설정
+```
+hostnamectl set-hostname bastion,cent83.lds.co.kr
+```
+3. Network Interface 설정
+```
+nmtui
+```
+<img src="./img/NI-1.png">
+- '연결 편집' 선택한다.
+<img src="./img/NI-2.png">
+- 연결 인터페이스(예) ens33) 선택 후 수정한다.
+<img src="./img/NI-3.png">
+- 네트워크 장비의 주소, 게이트웨이, DNS 주소 설정 후 확인 버튼 선택한다.
+<img src="./img/NI-4.png">
+- IP 설정 완료 시, 내용 적용을 위해 이전 메뉴로 돌아간다.
+<img src="./img/NI-4.png">
+- 연결 활성화를 클릭한다.
+<img src="./img/NI-4.png">
+- 활성화를 하여 설정한 내역을 적용시킨다.
+
+4. 내부 DNS 구성
+```
+sudo yum -y install bind bind-utils
+```
+    - 파일 수정 `sudo nano /etc/named.conf `
+```
+zone "." IN {
+	type hint;
+        file "named.ca";
+};
+
+zone "cent83.lds.co.kr." IN {
+        type master;
+        file "cent83.lds.co.kr.zone";
+
+};
+
+zone "60.168.192.in-addr.arpa." IN {
+        type master;
+        file "cent83.lds.co.kr.rev.zone";
+}
+```
+5. DNS 방화벽 설정
+```
+firewall-cmd --add-service=dns --permanent
+firewall-cmd --reload
+```
+6. DNS 서비스 시작
+```
+systemctl enable named
+systemctl start named
+```
+7. haproxy 설치
+```
+sudo dnf install haproxy -y
+```
+    - 파일 수정 `sudo nano /etc/haproxy/haproxy.cfg` 
+
+```
+frontend openshift-api-server
+    bind *:6443
+    default_backend openshift-api-server
+    mode tcp
+    option tcplog
+
+backend openshift-api-server
+    balance source
+    mode tcp
+    server bootstrap 192.168.60.10:6443 check
+    server master1 192.168.6.20:6443 check
+    server master2 192.168.6.30:6443 check
+    server master3 192.168.6.40:6443 check
+
+frontend machine-config-server
+    bind *:222623
+    default_backend machine-config-server
+    mode tcp option tcplog
+
+backend machine-config-server
+    balance source
+    mode tcp
+    server bootstrap 192.168.60.10:22623 check
+    server master1 192.168.60.10:22623 check
+    server master2 192.168.60.10:22623 check
+    server master3 192.168.60.10:22623 check
+
+frontend ingress-ttp
+    bind *:80
+    default_backend ingress-http
+    mode tcp
+    option tcplog
+
+backend ingress-http
+    balance source
+    mode tcp
+    server master1 192.168.60.20:80 check
+    server master2 192.168.60.30:80 check
+    server master3 192.168.60.40:80 check
+
+frontend ingress-https
+    bind *:443
+    default_backend ingress-https
+    mode tcp
+    option tcplog
+
+backend ingress-https
+    balance source
+    mode tcp
+    server master1 192.168.60.20:443 check
+    server master2 192.168.60.20:443 check
+    server master3 192.168.60.20:443 check
+```
+8. haproxy 설정
+```
+firewall-cmd --permanent --add-port=22623/tcp
+firewall-cmd --reload
+
+sudo setsebool -P haproxy_connect_any 1
+
+systemctl enable haproxy
+
+systemctl start haproxy
+```
+9. http file 서버 설정
+```
+sudo dnf install httpd -y
+```
+    - 포트 변경 `sudo nano /etc/httpd/conf/httpd.conf`
+    ```
+    Listen 8080
+    ```
+```
+systemctl enable httpd.service
+systemctl start httpd
+firewall-cmd --add-port=8080/tcp --permanent
+firewall-cmd --reload
+```
+10. 키생성
+```
+ssh-keygen
+```
+11. linux openshift-installer 다운
+```
+sudo wget https://github.com/openshift/okd/releases/download/4.8.0-0.okd-2021-10-01-221835/openshift-client-linux-4.8.0-0.okd-2021-10-01-221835.tar.gz
+sudo wget https://github.com/openshift/okd/releases/download/4.8.0-0.okd-2021-10-01-221835/openshift-install-linux-4.8.0-0.okd-2021-10-01-221835.tar.gz
+
+sudo tar zxvf openshift-client-linux-4.8.0-0.okd-2021-10-01-221835.tar.gz 
+sudo tar zxvf openshift-install-linux-4.8.0-0.okd-2021-10-01-221835.tar.gz 
+
+echo $PATH
+
+sudo mv oc /bin
+sudo mv openshift-install /bin
+sudo mv kubectl /bin
+```
+12. Install Config 생성
+```
+sudo mkdir /var/www/html/okd46
+```
+- config 파일 생성 `sudo nano install-config.yaml`
+```
+apiVersion: v1
+baseDomain: example.com 
+compute:
+- hyperthreading: Enabled   
+  name: worker
+  replicas: 0 
+controlPlane:
+  hyperthreading: Enabled   
+  name: master 
+  replicas: 3 
+metadata:
+  name: test 
+networking:
+  clusterNetwork:
+  - cidr: 10.128.0.0/14 
+    hostPrefix: 23 
+  networkType: OpenShiftSDN
+  serviceNetwork: 
+  - 172.30.0.0/16
+platform:
+  none: {} 
+fips: false 
+pullSecret: '{"auths":{"fake":{"auth":"bar"}}}' 
+sshKey: 'SHA256 cAudnfnCtnDrijsLd3vKTcvC6JVN8vE8kFgzNUCFRIA' 
+```
+- kubernetes manifests 및 Ignition 파일 구성
+```
+sudo cp ./install-config.yaml /var/www/html/okd46
+sudo openshift-install create manifests --dir=/var/www/html/okd46
+```
